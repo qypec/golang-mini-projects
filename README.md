@@ -10,7 +10,7 @@
  
     Работа с http-запросами.
     
- - [profilling](profilling/)
+ - [profiling](profiling/)
  
     Профилирование с pprof.
     
