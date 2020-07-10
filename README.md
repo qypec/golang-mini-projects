@@ -12,7 +12,7 @@
 
  - [profiling](profiling/)
 
-   Профилирование с pprof
+   Профилирование с pprof, кодогенерация.
     
 
  - [http_requests](http_requests/) __[WIP]__
