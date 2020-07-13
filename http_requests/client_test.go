@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -36,26 +37,24 @@ func getRequest(w http.ResponseWriter, r *http.Request) (*SearchRequest, error) 
 	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("limit is not a number"))
 		return nil, err
 	}
 
 	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("offset is not a number"))
 		return nil, err
 	}
 
 	orderBy, err := strconv.Atoi(r.URL.Query().Get("order_by"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("order_by is not a number"))
 		return nil, err
 	}
 	if orderBy != 1 && orderBy != 0 && orderBy != -1 {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("order_by has an invalid value"))
+		data, _ := json.Marshal(&SearchErrorResponse{"order_by has an invalid value"})
+		w.Write(data)
 		return nil, errors.New("order_by has an invalid value")
 	}
 
@@ -228,6 +227,31 @@ func TestFindUsers(t *testing.T) {
 			Expected: nil,
 			IsError:  true,
 		},
+		/* 05 */ {
+			Request: &SearchRequest{
+				Limit:      1,
+				Offset:     1,
+				Query:      "Boyd",
+				OrderField: "Id",
+				OrderBy:    100000,
+			},
+			Expected: nil,
+			IsError:  true,
+		},
+		/* 06 */ { // limit == len(data)
+			Request: &SearchRequest{
+				Limit:      0,
+				Offset:     1,
+				Query:      "Boyd",
+				OrderField: "Id",
+				OrderBy:    OrderByAsc,
+			},
+			Expected: &SearchResponse{
+				Users:    []User{},
+				NextPage: true,
+			},
+			IsError: false,
+		},
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
@@ -276,6 +300,62 @@ func TestBadAcessToken(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(SearchServerBadAcessToken))
 	defer ts.Close()
 
+	c := &SearchClient{
+		URL: ts.URL,
+	}
+	_, err := c.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("Expected error, got nil")
+	}
+}
+
+func SearchServerInvalidJSON(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("hello error!"))
+}
+
+func SearchServerBadRequestInvalidJSON(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("hello error!"))
+}
+
+func TestInvalidJson(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(SearchServerInvalidJSON))
+	c := &SearchClient{
+		URL: ts.URL,
+	}
+	_, err := c.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("Expected error, got nil")
+	}
+	ts.Close()
+
+	ts = httptest.NewServer(http.HandlerFunc(SearchServerBadRequestInvalidJSON))
+	defer ts.Close()
+	c = &SearchClient{
+		URL: ts.URL,
+	}
+	_, err = c.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("Expected error, got nil")
+	}
+}
+
+func TestNilUrl(t *testing.T) {
+	c := &SearchClient{
+		URL: "",
+	}
+	_, err := c.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("Expected error, got nil")
+	}
+}
+
+func SearchServerTimeout(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(time.Second)
+}
+
+func TestTimeout(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(SearchServerTimeout))
 	c := &SearchClient{
 		URL: ts.URL,
 	}
