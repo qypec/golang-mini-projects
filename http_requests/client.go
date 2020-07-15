@@ -52,7 +52,8 @@ type SearchRequest struct {
 	Offset     int    // Можно учесть после сортировки
 	Query      string // подстрока в 1 из полей
 	OrderField string
-	OrderBy    int // -1 по убыванию, 0 как встретилось, 1 по возрастанию
+	// -1 по убыванию, 0 как встретилось, 1 по возрастанию
+	OrderBy int
 }
 
 type SearchClient struct {
@@ -110,8 +111,8 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cant unpack error json: %s", err)
 		}
-		if errResp.Error == ErrorBadOrderField {
-			return nil, fmt.Errorf("OrderField %s invalid", req.OrderField)
+		if errResp.Error == "ErrorBadOrderField" {
+			return nil, fmt.Errorf("OrderFeld %s invalid", req.OrderField)
 		}
 		return nil, fmt.Errorf("unknown bad request error: %s", errResp.Error)
 	}

@@ -33,50 +33,6 @@ type xmlUser struct {
 	Gender    string `xml:"gender"`
 }
 
-func getRequest(w http.ResponseWriter, r *http.Request) (*SearchRequest, error) {
-	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return nil, err
-	}
-
-	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return nil, err
-	}
-
-	orderBy, err := strconv.Atoi(r.URL.Query().Get("order_by"))
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return nil, err
-	}
-	if orderBy != 1 && orderBy != 0 && orderBy != -1 {
-		w.WriteHeader(http.StatusBadRequest)
-		data, _ := json.Marshal(&SearchErrorResponse{"order_by has an invalid value"})
-		w.Write(data)
-		return nil, errors.New("order_by has an invalid value")
-	}
-
-	orderField := r.URL.Query().Get("order_field")
-	if orderField != "Id" && orderField != "Age" && orderField != "Name" && orderField != "" {
-		w.WriteHeader(http.StatusBadRequest)
-		data, _ := json.Marshal(&SearchErrorResponse{ErrorBadOrderField})
-		w.Write(data)
-		return nil, errors.New(ErrorBadOrderField)
-	}
-
-	query := r.URL.Query().Get("query")
-
-	return &SearchRequest{
-		Limit:      limit,
-		Offset:     offset,
-		Query:      query,
-		OrderField: orderField,
-		OrderBy:    orderBy,
-	}, nil
-}
-
 type users []User
 
 func (s users) Len() int      { return len(s) }
@@ -106,6 +62,50 @@ type ByNameDesc struct{ users }
 
 func (s ByNameDesc) Less(i, j int) bool { return s.users[i].Name > s.users[j].Name }
 
+func getRequest(w http.ResponseWriter, r *http.Request) (*SearchRequest, error) {
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return nil, err
+	}
+
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return nil, err
+	}
+
+	orderBy, err := strconv.Atoi(r.URL.Query().Get("order_by"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return nil, err
+	}
+	if orderBy != 1 && orderBy != 0 && orderBy != -1 {
+		w.WriteHeader(http.StatusBadRequest)
+		data, _ := json.Marshal(&SearchErrorResponse{"order_by has an invalid value"})
+		w.Write(data)
+		return nil, errors.New("order_by has an invalid value")
+	}
+
+	orderField := r.URL.Query().Get("order_field")
+	if orderField != "Id" && orderField != "Age" && orderField != "Name" && orderField != "" {
+		w.WriteHeader(http.StatusBadRequest)
+		data, _ := json.Marshal(&SearchErrorResponse{"ErrorBadOrderField"})
+		w.Write(data)
+		return nil, errors.New(ErrorBadOrderField)
+	}
+
+	query := r.URL.Query().Get("query")
+
+	return &SearchRequest{
+		Limit:      limit,
+		Offset:     offset,
+		Query:      query,
+		OrderField: orderField,
+		OrderBy:    orderBy,
+	}, nil
+}
+
 func SearchServer(w http.ResponseWriter, r *http.Request) {
 	req, err := getRequest(w, r)
 	if err != nil {
@@ -115,6 +115,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	file, err := os.Open(dataset)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	defer file.Close()
@@ -122,13 +123,16 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
 	var x xmlUsers
 	err = xml.Unmarshal(data, &x)
 	if err != nil {
-		panic(err) // fix
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
 	}
 
 	sample := make([]User, 0)
@@ -168,7 +172,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json, _ := json.Marshal(sample) // err ??
+	json, _ := json.Marshal(sample)
 	w.Write(json)
 }
 
