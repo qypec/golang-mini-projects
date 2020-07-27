@@ -33,35 +33,6 @@ type xmlUser struct {
 	Gender    string `xml:"gender"`
 }
 
-type users []User
-
-func (s users) Len() int      { return len(s) }
-func (s users) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-type ByIDAsc struct{ users }
-
-func (s ByIDAsc) Less(i, j int) bool { return s.users[i].Id < s.users[j].Id }
-
-type ByIDDesc struct{ users }
-
-func (s ByIDDesc) Less(i, j int) bool { return s.users[i].Id > s.users[j].Id }
-
-type ByAgeAsc struct{ users }
-
-func (s ByAgeAsc) Less(i, j int) bool { return s.users[i].Age < s.users[j].Age }
-
-type ByAgeDesc struct{ users }
-
-func (s ByAgeDesc) Less(i, j int) bool { return s.users[i].Age > s.users[j].Age }
-
-type ByNameAsc struct{ users }
-
-func (s ByNameAsc) Less(i, j int) bool { return s.users[i].Name < s.users[j].Name }
-
-type ByNameDesc struct{ users }
-
-func (s ByNameDesc) Less(i, j int) bool { return s.users[i].Name > s.users[j].Name }
-
 func getRequest(w http.ResponseWriter, r *http.Request) (*SearchRequest, error) {
 	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
 	if err != nil {
@@ -149,25 +120,28 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.OrderBy != OrderByAsIs {
-		switch req.OrderField {
-		case "Id":
-			if req.OrderBy == OrderByAsc {
-				sort.Sort(ByIDAsc{sample})
-			} else {
-				sort.Sort(ByIDDesc{sample})
+	// sort
+	switch req.OrderBy {
+	case OrderByAsc:
+		{
+			switch req.OrderField {
+			case "Id":
+				sort.Slice(sample, func(i, j int) bool { return sample[i].Id < sample[j].Id })
+			case "Age":
+				sort.Slice(sample, func(i, j int) bool { return sample[i].Age < sample[j].Age })
+			default: // "Name" || "":
+				sort.Slice(sample, func(i, j int) bool { return sample[i].Name < sample[j].Name })
 			}
-		case "Age":
-			if req.OrderBy == OrderByAsc {
-				sort.Sort(ByAgeAsc{sample})
-			} else {
-				sort.Sort(ByAgeDesc{sample})
-			}
-		default: // "Name" || ""
-			if req.OrderBy == OrderByAsc {
-				sort.Sort(ByNameAsc{sample})
-			} else {
-				sort.Sort(ByNameDesc{sample})
+		}
+	case OrderByDesc:
+		{
+			switch req.OrderField {
+			case "Id":
+				sort.Slice(sample, func(i, j int) bool { return sample[i].Id > sample[j].Id })
+			case "Age":
+				sort.Slice(sample, func(i, j int) bool { return sample[i].Age > sample[j].Age })
+			default: // "Name" || "":
+				sort.Slice(sample, func(i, j int) bool { return sample[i].Name > sample[j].Name })
 			}
 		}
 	}
